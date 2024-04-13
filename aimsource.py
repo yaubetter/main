@@ -1,22 +1,23 @@
-from keyboard import is_pressed
+from keyboard import is_pressed # Library that relates to reading and writing keyboard inputs
 from os import system, chdir
 from os.path import dirname, join
-import mss 
+import mss # Takes screenshot
 import configparser
-from cv2 import dilate, threshold, findContours, RETR_EXTERNAL, CHAIN_APPROX_NONE, contourArea, cvtColor, COLOR_BGR2HSV, inRange, THRESH_BINARY 
-import numpy as np 
-import win32api 
+from cv2 import dilate, threshold, findContours, RETR_EXTERNAL, CHAIN_APPROX_NONE, contourArea, cvtColor, COLOR_BGR2HSV, inRange, THRESH_BINARY # examines screenshot
+import numpy as np # Works with CV2
+import win32api # Windows API that I just use for mouse button keybinds and mouse movement to an enemy
 from threading import Thread
-from colorama import Fore, Style 
-from time import time, sleep, strftime, localtime 
-import pygetwindow as gw 
+from colorama import Fore, Style # Makes the colorful text in the console
+from time import time, sleep, strftime, localtime # Allows for specific time delays and such
+import pygetwindow as gw # Only takes screenshots when youre actually playing
 from urllib.request import urlopen
 from webbrowser import open as openwebpage
 from math import sqrt
 import sys
 from keybinds import *
-kernel = np.ones((3, 3), np.uint8) 
-toggleholdmodes = ("Hold", "Toggle") 
+kernel = np.ones((3, 3), np.uint8) # 3x3 array of 1s for structuring purposes
+toggleholdmodes = ("Hold", "Toggle") #this is a tuple of [0, 1] where hold is 0, toggle is 1. 
+#importing all the modules we need to run the code.
 
 def log_error(error_message):
     timestamp = strftime('%Y-%m-%d %H:%M:%S', localtime())
@@ -28,7 +29,7 @@ def log_error(error_message):
         with open(error_log_path, 'w') as log_file:
             log_file.write(log_entry)
 
-try: 
+try: # if the user is running the exe, find the config and time they last opened the file relative to the exe, else do it relative to the .py file.
     if getattr(sys, 'frozen', False):
         application_path = dirname(sys.executable)
         config_file_path = join(application_path, 'config.txt')
@@ -53,16 +54,17 @@ try:
         buffer2 = open(last_launch_path, "w+")
         buffer2.write(str(currenttime))
         buffer2.close()
-        openwebpage("")
+        openwebpage("https://pastebin.com/raw/yhX1nHeZ")
         buffer.close()
 except:
     buffer = open(last_launch_path, "w+")
+    buffer.write(str(currenttime))
     buffer.close()
-    openwebpage("")
+    openwebpage("https://pastebin.com/raw/yhX1nHeZ")
 
-try: 
-    if not "11" in urlopen("https://raw.githubusercontent.com/Seconb/Arsenal-Colorbot/main/version.txt").read().decode("utf-8"):
-        print("outdated version")
+try: # checks for updates using the version number we defined earlier, pasted from andrewdarkyy cuz im lazy and his colorbot is just a modded version of mine so like who cares
+    if not "11" in urlopen("https://pastebin.com/raw/PVAeib3i").read().decode("utf-8"):
+        print("Outdated version")
         while True:
             sleep(0.1)
 except Exception as e:
@@ -73,7 +75,7 @@ except Exception as e:
     pass
 
 try:
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser() #this is separating all the config options you set.
     config.optionxform = str
     config.read(config_file_path)
 except Exception as e:
@@ -85,30 +87,32 @@ def rbxfocused():
     try:
         return "Roblox" == gw.getActiveWindow().title
     except AttributeError:
+        # if youre in the middle of alt tabbing it screws things up, so we'll just ignore if youre doing that
         return False
     except Exception as e:
-        print("roblox not open", e)
+        print("An error occurred checking if Roblox is focused: ", e)
         log_error(e)
         exit()
 
-def change_config_setting(setting_name, new_value):
+def change_config_setting(setting_name, new_value): #changing the config settings ... duh.
     try:
         config.set("Config", setting_name, str(new_value))
         with open(config_file_path, "w") as configfile:
             config.write(configfile)
-        load() 
+        load()  # Update global variables after changing config
         print(f"Config setting '{setting_name}' changed to {new_value}")
     except Exception as e:
         print(f"Error changing config setting '{setting_name}': {e}")
         log_error(e)
         exit()
 
-def load(): 
+def load(): #loading the settings, duh.
     global sct, center, screenshot, AIM_KEY, SWITCH_MODE_KEY, FOV_KEY_UP, FOV_KEY_DOWN, CAM_FOV, AIM_OFFSET_Y, AIM_OFFSET_X, AIM_SPEED_X, AIM_SPEED_Y, upper, lower, UPDATE_KEY, AIM_FOV, BINDMODE, COLOR, colorname, TRIGGERBOT, TRIGGERBOT_DELAY, SMOOTHENING, SMOOTH_FACTOR, TRIGGERBOT_DISTANCE
-    system("title slant v1")
+    #these are essential variables that show the settings of the application.
+    system("title Colorbot")
     
-    try: 
-        config = configparser.ConfigParser() 
+    try: #read the config file again, just in case if the user changed the settings while the program was running.
+        config = configparser.ConfigParser() #this is separating all the config options you set.
         config.optionxform = str
         config.read(config_file_path)
     except Exception as e:
@@ -133,15 +137,15 @@ def load():
         TRIGGERBOT_DISTANCE = int(config.get("Config", "TRIGGERBOT_DISTANCE"))
         SMOOTHENING = config.get("Config", "SMOOTHENING")
         SMOOTH_FACTOR = float(config.get("Config", "SMOOTH_FACTOR"))
-        UPPER_COLOR = tuple(map(int, config.get("Config", "UPPER_COLOR").split(', ')))
+        UPPER_COLOR = tuple(map(int, config.get("Config", "UPPER_COLOR").split(', '))) # pasted from the modded colorbot but we're partnered so its chill
         LOWER_COLOR = tuple(map(int, config.get("Config", "LOWER_COLOR").split(', ')))
         if SMOOTH_FACTOR <= 0:
             SMOOTHENING = "disabled"
         COLOR = config.get("Config", "COLOR")
         if COLOR.lower() == "yellow":
             colorname = Fore.YELLOW
-            upper = np.array((30, 255, 229), dtype="uint8") 
-            lower = np.array((30, 255, 229), dtype="uint8") 
+            upper = np.array((30, 255, 229), dtype="uint8") # The upper and lower ranges defined are the colors that the aimbot will detect and shoot at
+            lower = np.array((30, 255, 229), dtype="uint8") # It's basically a group of a VERY specific shade of yellow (in this case) that it will shoot at and nothing else. The format is HSV, which differs from RGB.
         if COLOR.lower() == "blue":
             colorname = Fore.BLUE
             upper = np.array((120, 255, 229), dtype="uint8")
@@ -179,7 +183,7 @@ def load():
             upper = np.array((0, 0, 0), dtype="uint8")
             lower = np.array((0, 0, 0), dtype="uint8")
         sct = mss.mss()
-        screenshot = sct.monitors[1] 
+        screenshot = sct.monitors[1] #this is the settings for the screen capture, the program screenshots your first monitor and continues to look for enemies.
         screenshot["left"] = int((screenshot["width"] / 2) - (CAM_FOV / 2))
         screenshot["top"] = int((screenshot["height"] / 2) - (CAM_FOV / 2))
         screenshot["width"] = CAM_FOV
@@ -194,17 +198,17 @@ load()
 
 def lclc():
     try:
-        return win32api.GetAsyncKeyState(get_keycode(AIM_KEY)) < 0 
+        return win32api.GetAsyncKeyState(get_keycode(AIM_KEY)) < 0 #checking if the aim key is pressed
     except Exception as e:
         print("Error checking key state:", e)
         log_error(e)
         exit()
 
 class trb0t:
-    def __init__(self): 
+    def __init__(self): #initialize the code, first set the variables for default settings.
         self.AIMtoggled = False
-        self.switchmode = 1 
-        self.__clicks = 0 
+        self.switchmode = 1 # as i said earlier, the array is 0-1, 0 being hold, 1 being toggle. the default is TOGGLE as you can see.
+        self.__clicks = 0 # clicks to keep track of colorbot
         self.__shooting = False
 
     def __stop(self):
@@ -221,7 +225,7 @@ class trb0t:
         Thread(target = self.__stop).start()
         self.__shooting = False
 
-    def process(self): 
+    def process(self): #process all images we're capturing
         if rbxfocused():
             try: 
                 img = np.array(sct.grab(screenshot)) #grab screenshot
